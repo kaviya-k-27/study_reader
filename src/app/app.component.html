@@ -1,0 +1,120 @@
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-icon">▣</div>
+    <div><strong>My Study Reader</strong><small>Your notes, one calm page at a time</small></div>
+  </div>
+  <div class="top-actions">
+    <input class="search-box" type="search" placeholder="⌕  Search notes..." [(ngModel)]="searchText">
+    <button class="btn-green" (click)="openTopicForm()">＋ New topic</button>
+  </div>
+</header>
+
+<div class="app-layout">
+  <aside class="sidebar">
+    <div class="side-heading">STUDY TOPICS</div>
+    <div class="muted small">{{ topics.length }} topics · {{ revisedCount }} revised</div>
+    <ng-container *ngFor="let subject of subjects">
+      <div class="subject-heading" *ngIf="topicsForSubject(subject).length">{{ subject }} <span>{{ topicsForSubject(subject).length }}</span></div>
+      <button class="topic-link" *ngFor="let topic of topicsForSubject(subject)"
+        [class.active]="topic.id === selectedId" (click)="selectTopic(topic)">
+        <span class="topic-dot"></span><span class="topic-name">{{ topic.title }}</span>
+        <span *ngIf="topic.revised" class="check">✓</span>
+      </button>
+    </ng-container>
+    <div class="empty-search" *ngIf="filteredTopics.length === 0">No matching topics</div>
+    <button class="add-topic" (click)="openTopicForm()">＋ Add a study topic</button>
+    <p class="muted tiny">▧ Notes save automatically in this browser.</p>
+  </aside>
+
+  <main class="main-area">
+    <div class="breadcrumb">My library <span>›</span> <strong>{{ selectedTopic.subject }}</strong></div>
+    <div class="page-heading-row">
+      <div><h1>Study reader</h1><p>Keep the important parts of your learning close, searchable, and easy to revisit.</p></div>
+      <div class="revised-pill">♧ {{ revisedCount }} of {{ topics.length }} revised</div>
+    </div>
+
+    <section class="reader-card">
+      <div class="topic-meta">
+        <span class="subject-pill">{{ selectedTopic.subject }}</span>
+        <span>▦ {{ selectedTopic.date }}</span>
+        <span class="revised-text" *ngIf="selectedTopic.revised">✓ Revised</span>
+        <div class="topic-actions">
+          <button class="btn-light" (click)="editTopic()">✎ Edit topic</button>
+          <button class="btn-danger" (click)="deleteTopic()">♲ Delete</button>
+        </div>
+      </div>
+      <h2 class="topic-title">{{ selectedTopic.title }}</h2>
+      <div class="sub-meta">Saved in this browser only</div>
+      <div class="mark-row">
+        <button class="mark-btn" [class.is-revised]="selectedTopic.revised" (click)="toggleRevised()">
+          {{ selectedTopic.revised ? '✓ Mark as studying' : '✓ Mark as revised' }}
+        </button>
+      </div>
+
+      <nav class="tabs">
+        <button [class.active]="currentTab === 'notes'" (click)="currentTab='notes'">▤ Notes</button>
+        <button [class.active]="currentTab === 'pdf'" (click)="currentTab='pdf'">▧ PDF preview</button>
+        <button [class.active]="currentTab === 'image'" (click)="currentTab='image'">▧ Image preview</button>
+      </nav>
+
+      <section *ngIf="currentTab === 'notes'" class="notes-section">
+        <div class="editor-toolbar" aria-label="Text formatting toolbar">
+          <button title="Bold" class="tool-button bold-tool" (mousedown)="$event.preventDefault(); format('bold')"><b>B</b></button>
+          <button title="Italic" class="tool-button" (mousedown)="$event.preventDefault(); format('italic')"><i>I</i></button>
+          <button title="Underline" class="tool-button" (mousedown)="$event.preventDefault(); format('underline')"><u>U</u></button>
+          <span class="tool-divider"></span>
+          <select aria-label="Font family" [(ngModel)]="fontFamily" (mousedown)="rememberSelection()" (change)="setFontFamily()">
+            <option value="Arial">Arial</option><option value="Inter">Inter</option><option value="Roboto">Roboto</option><option value="Georgia">Georgia</option><option value="Verdana">Verdana</option><option value="Times New Roman">Times New Roman</option>
+          </select>
+          <select aria-label="Font size" [(ngModel)]="fontSize" (mousedown)="rememberSelection()" (change)="setFontSize()">
+            <option value="12px">12</option><option value="14px">14</option><option value="16px">16</option><option value="18px">18</option><option value="20px">20</option><option value="24px">24</option><option value="32px">32</option>
+          </select>
+          <span class="tool-divider"></span>
+          <button title="Heading 2" class="tool-button" (mousedown)="$event.preventDefault(); format('formatBlock','H2')">H2</button>
+          <button title="Bullet list" class="tool-button" (mousedown)="$event.preventDefault(); format('insertUnorderedList')">• List</button>
+          <button title="Numbered list" class="tool-button" (mousedown)="$event.preventDefault(); format('insertOrderedList')">1. List</button>
+          <button title="Import Markdown" class="tool-button markdown-button" (click)="importMarkdown()">Paste Markdown</button>
+        </div>
+        <div #editor class="study-editor" contenteditable="true" role="textbox" aria-label="Study notes editor"
+          aria-multiline="true" spellcheck="true" (input)="onEditorInput()" (mouseup)="rememberSelection()" (keyup)="rememberSelection()"
+          (paste)="rememberSelection()"></div>
+        <div class="editor-footer"><span>Click in the notes and type. Select text, then use the toolbar.</span><span>Auto-saves in this browser</span></div>
+      </section>
+
+      <section *ngIf="currentTab === 'pdf'" class="file-section">
+        <div class="file-toolbar">
+          <label class="btn-green file-picker">Choose PDF<input type="file" accept="application/pdf,.pdf" (change)="chooseFile('pdf',$event)"></label>
+          <span *ngIf="pdfName" class="file-name">{{ pdfName }}</span>
+          <div class="file-controls" *ngIf="pdfUrl">
+            <button class="btn-light" (click)="changePdfPage(-1)">− Page</button><span>Page {{ pdfPage }}</span><button class="btn-light" (click)="changePdfPage(1)">+ Page</button>
+            <button class="btn-light" (click)="changePdfZoom(-10)">−</button><span>{{ pdfZoom }}%</span><button class="btn-light" (click)="changePdfZoom(10)">＋</button>
+          </div>
+        </div>
+        <div class="file-empty" *ngIf="!pdfUrl"><div class="file-icon">▤</div><h3>Choose a PDF to read</h3><p>The selected file is previewed locally and is not uploaded.</p></div>
+        <iframe *ngIf="pdfUrl" class="pdf-frame" [src]="safePdfUrl" title="PDF preview"></iframe>
+      </section>
+
+      <section *ngIf="currentTab === 'image'" class="file-section">
+        <div class="file-toolbar">
+          <label class="btn-green file-picker">Choose image<input type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" (change)="chooseFile('image',$event)"></label>
+          <span *ngIf="imageName" class="file-name">{{ imageName }}</span>
+          <div class="file-controls" *ngIf="imageUrl"><button class="btn-light" (click)="changeImageZoom(-10)">−</button><span>{{ imageZoom }}%</span><button class="btn-light" (click)="changeImageZoom(10)">＋</button></div>
+        </div>
+        <div class="image-stage" *ngIf="imageUrl"><img [src]="imageUrl" [style.width.%]="imageZoom" [alt]="imageName"></div>
+        <div class="file-empty" *ngIf="!imageUrl"><div class="file-icon">▧</div><h3>Choose an image to preview</h3><p>Supported formats: JPG, JPEG and PNG.</p></div>
+      </section>
+    </section>
+  </main>
+</div>
+
+<div class="toast-message" *ngIf="statusMessage">{{ statusMessage }}</div>
+
+<div class="modal-backdrop" *ngIf="showTopicForm" (click)="showTopicForm=false">
+  <form class="topic-modal" (click)="$event.stopPropagation()" (ngSubmit)="saveTopicForm()">
+    <div class="modal-heading"><h2>{{ isEditingTopic ? 'Edit topic' : 'Add a study topic' }}</h2><button type="button" class="close-button" (click)="showTopicForm=false">×</button></div>
+    <label>Subject<input name="subject" [(ngModel)]="topicForm.subject" required placeholder="e.g. Git, HTML, CSS"></label>
+    <label>Topic title<input name="title" [(ngModel)]="topicForm.title" required placeholder="e.g. Git staging"></label>
+    <label>Date<input name="date" type="date" [(ngModel)]="topicForm.date" required></label>
+    <div class="modal-actions"><button type="button" class="btn-light" (click)="showTopicForm=false">Cancel</button><button type="submit" class="btn-green">Save topic</button></div>
+  </form>
+</div>
